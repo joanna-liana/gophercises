@@ -1,0 +1,1 @@
+A collection of my custom answers to [gophercises](https://gophercises.com)

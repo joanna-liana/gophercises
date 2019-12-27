@@ -12,12 +12,14 @@ import (
     "strconv"
 )
 
+// WrongAnswerInfo contains question and answers info
 type WrongAnswerInfo struct {
     Question string
     PlayerAnswer string
     CorrectAnswer string
 }
 
+// ProgramDefaults represents default program settings
 type ProgramDefaults struct {
     DefaultFile string
     DefaultTimeLimit int
@@ -78,7 +80,7 @@ func main() {
             log.Fatal(error)
         }
 
-        questionsCount += 1
+        questionsCount++
         question := line[0]
         answer := strings.TrimSpace(line[1])
 

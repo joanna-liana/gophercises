@@ -6,7 +6,6 @@ import (
     "log"
 	"fmt"
     "flag"
-    "io"
     "encoding/csv"
     "strings"
     "strconv"
@@ -57,45 +56,55 @@ func getDefaults() ProgramDefaults {
      }
 }
 
-func runQuiz(filepath string, channel chan string) {
+func prepareProblems(filepath string) ([][]string) {
     csvBuffer, err := os.Open(filepath)
+
     if err != nil {
         log.Fatal(err)
     }
 
-    questionsCount := 0
+    cvsReader := csv.NewReader(bufio.NewReader(csvBuffer))
+
+    problems, error := cvsReader.ReadAll()
+
+    if error != nil {
+        log.Fatal(error)
+    }
+
+    return problems
+}
+
+func runQuiz(problems [][]string, timer *time.Timer) {
     var wrongAnswersInfo []WrongAnswerInfo
 
-    cvsReader := csv.NewReader(bufio.NewReader(csvBuffer))
-    for {
-        line, error := cvsReader.Read()
+    questionsCount := len(problems)
 
-        if error == io.EOF {
-            break
-        } else if error != nil {
-            log.Fatal(error)
+    for _, problem := range problems {
+        select {
+            case <- timer.C:
+            fmt.Println("\nThe time is up!")
+            return
+
+            default:
+                question := problem[0]
+                answer := strings.TrimSpace(problem[1])
+
+                buf := bufio.NewReader(os.Stdin)
+                fmt.Print(question, "> ")
+                userAnswer, err := buf.ReadString('\n')
+                parsedUserAnswer := strings.TrimSpace(userAnswer)
+
+                if err != nil {
+                    fmt.Println(err)
+                } else  if parsedUserAnswer == answer {
+                    fmt.Print("Well done!\n\n")
+                } else {
+                    fmt.Print("Wrong answer\n\n")
+                    answerInfo := WrongAnswerInfo{ Question: question, PlayerAnswer: parsedUserAnswer, CorrectAnswer: answer }
+                    wrongAnswersInfo = append(wrongAnswersInfo, answerInfo)
+                }
         }
 
-        questionsCount++
-        question := line[0]
-        answer := strings.TrimSpace(line[1])
-
-        buf := bufio.NewReader(os.Stdin)
-        fmt.Print(question, "> ")
-        userAnswer, err := buf.ReadString('\n')
-        parsedUserAnswer := strings.TrimSpace(userAnswer)
-
-        if err != nil {
-            fmt.Println(err)
-        } else {
-            if  parsedUserAnswer == answer {
-                fmt.Print("Well done!\n\n")
-            } else {
-                fmt.Print("Wrong answer\n\n")
-                answerInfo := WrongAnswerInfo{ Question: question, PlayerAnswer: parsedUserAnswer, CorrectAnswer: answer }
-                wrongAnswersInfo = append(wrongAnswersInfo, answerInfo)
-            }
-        }
     }
 
     wrongAnswersCount := len(wrongAnswersInfo)
@@ -111,25 +120,18 @@ func runQuiz(filepath string, channel chan string) {
         }
     }
 
-    channel <- "Thanks for playing!"
+    fmt.Println("Thanks for playing!")
 }
 
-func runTimedQuiz(filepath string, timeLimit int) {
-    quizRun := make(chan string, 1)
-    go runQuiz(filepath, quizRun)
-
-    select {
-    case res := <- quizRun:
-        fmt.Println(res)
-    case <-time.After(time.Duration(timeLimit) * time.Second):
-        // TODO: stop the code inside c1
-        fmt.Println("\nThe time is up!")
-    }
+func runTimedQuiz(problems [][]string, timeLimit int) {
+    timer := time.NewTimer(time.Duration(timeLimit) * time.Second)
+    runQuiz(problems, timer)
 }
 
 func main() {
     defaults := getDefaults()
     filepath, timeLimit := defaults.DefaultFile, defaults.DefaultTimeLimit
+    problems := prepareProblems(filepath)
 
     fmt.Println("Time limit:" + strconv.Itoa(timeLimit) + " seconds")
 
@@ -142,7 +144,7 @@ func main() {
         return
     }
 
-    runTimedQuiz(filepath, timeLimit)
+    runTimedQuiz(problems, timeLimit)
     fmt.Println("Wanna try again?")
     answer, err := buf.ReadString('\n')
 
@@ -152,7 +154,7 @@ func main() {
     }
 
     if (answer == "y") {
-        runTimedQuiz(filepath, timeLimit)
+        runTimedQuiz(problems, timeLimit)
     }
 
     fmt.Println("See ya!")

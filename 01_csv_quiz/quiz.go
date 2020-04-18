@@ -1,161 +1,174 @@
 package main
 
 import (
-    "bufio"
-    "os"
-    "log"
+	"bufio"
+	"encoding/csv"
+	"flag"
 	"fmt"
-    "flag"
-    "encoding/csv"
-    "strings"
-    "strconv"
-    "time"
+	"log"
+	"os"
+	"strconv"
+	"strings"
+	"time"
 )
 
 // WrongAnswerInfo contains question and answers info
 type WrongAnswerInfo struct {
-    Question string
-    PlayerAnswer string
-    CorrectAnswer string
+	Question      string
+	PlayerAnswer  string
+	CorrectAnswer string
 }
 
 // ProgramDefaults represents default program settings
 type ProgramDefaults struct {
-    DefaultFile string
-    DefaultTimeLimit int
+	DefaultFile      string
+	DefaultTimeLimit int
 }
 
 func getDefaults() ProgramDefaults {
-    defaultFile := "questions.csv"
-    defaultTimeLimit := 10
+	defaultFile := "questions.csv"
+	defaultTimeLimit := 10
 
-    setDefaults := func (f *flag.Flag) {
-        switch f.Name {
-            case "csv" :
-                defaultFile = f.Value.String()
+	setDefaults := func(f *flag.Flag) {
+		switch f.Name {
+		case "csv":
+			defaultFile = f.Value.String()
 
-            case "limit":
-                intLimit, err := strconv.Atoi(f.Value.String())
-                if err != nil {
-                    log.Fatal(err)
-                    return
-                }
-                defaultTimeLimit = intLimit
-        }
-    }
+		case "limit":
+			intLimit, err := strconv.Atoi(f.Value.String())
+			if err != nil {
+				log.Fatal(err)
+				return
+			}
+			defaultTimeLimit = intLimit
+		}
+	}
 
-    flag.String("csv", defaultFile, "A CSV file in the format: question, answer")
-    flag.Int("limit", defaultTimeLimit, "The time limit for answering a single question (in seconds)")
-    flag.Parse()
+	flag.String("csv", defaultFile, "A CSV file in the format: question, answer")
+	flag.Int("limit", defaultTimeLimit, "The time limit for answering a single question (in seconds)")
+	flag.Parse()
 
-    flag.Visit(setDefaults)
+	flag.Visit(setDefaults)
 
-    return ProgramDefaults {
-        DefaultFile: defaultFile,
-        DefaultTimeLimit: defaultTimeLimit,
-     }
+	return ProgramDefaults{
+		DefaultFile:      defaultFile,
+		DefaultTimeLimit: defaultTimeLimit,
+	}
 }
 
-func prepareProblems(filepath string) ([][]string) {
-    csvBuffer, err := os.Open(filepath)
+func prepareProblems(filepath string) [][]string {
+	csvBuffer, err := os.Open(filepath)
 
-    if err != nil {
-        log.Fatal(err)
-    }
+	if err != nil {
+		log.Fatal(err)
+	}
 
-    cvsReader := csv.NewReader(bufio.NewReader(csvBuffer))
+	cvsReader := csv.NewReader(bufio.NewReader(csvBuffer))
 
-    problems, error := cvsReader.ReadAll()
+	problems, error := cvsReader.ReadAll()
 
-    if error != nil {
-        log.Fatal(error)
-    }
+	if error != nil {
+		log.Fatal(error)
+	}
 
-    return problems
+	return problems
+}
+
+func getUserAnswer(answerChan chan string) {
+	buf := bufio.NewReader(os.Stdin)
+	userAnswer, err := buf.ReadString('\n')
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	answerChan <- userAnswer
 }
 
 func runQuiz(problems [][]string, timer *time.Timer) {
-    var wrongAnswersInfo []WrongAnswerInfo
+	var wrongAnswersInfo []WrongAnswerInfo
 
-    questionsCount := len(problems)
+	questionsCount := len(problems)
 
-    for _, problem := range problems {
-        select {
-            case <- timer.C:
-            fmt.Println("\nThe time is up!")
-            return
+	for _, problem := range problems {
+		question := problem[0]
+		answer := strings.TrimSpace(problem[1])
+		userAnswerChannel := make(chan string)
 
-            default:
-                question := problem[0]
-                answer := strings.TrimSpace(problem[1])
+		fmt.Print(question, "> ")
 
-                buf := bufio.NewReader(os.Stdin)
-                fmt.Print(question, "> ")
-                userAnswer, err := buf.ReadString('\n')
-                parsedUserAnswer := strings.TrimSpace(userAnswer)
+		go getUserAnswer(userAnswerChannel)
 
-                if err != nil {
-                    fmt.Println(err)
-                } else  if parsedUserAnswer == answer {
-                    fmt.Print("Well done!\n\n")
-                } else {
-                    fmt.Print("Wrong answer\n\n")
-                    answerInfo := WrongAnswerInfo{ Question: question, PlayerAnswer: parsedUserAnswer, CorrectAnswer: answer }
-                    wrongAnswersInfo = append(wrongAnswersInfo, answerInfo)
-                }
-        }
+		select {
+		case <-timer.C:
+			fmt.Println("\nThe time is up!")
+			// TODO: break out of the FOR LOOP
+			return
 
-    }
+		case input := <-userAnswerChannel:
+			close(userAnswerChannel)
+			parsedUserAnswer := strings.TrimSpace(input)
 
-    wrongAnswersCount := len(wrongAnswersInfo)
+			if parsedUserAnswer == answer {
+				fmt.Print("Well done!\n\n")
+			} else {
+				fmt.Print("Wrong answer\n\n")
+				answerInfo := WrongAnswerInfo{Question: question, PlayerAnswer: parsedUserAnswer, CorrectAnswer: answer}
+				wrongAnswersInfo = append(wrongAnswersInfo, answerInfo)
+			}
+		}
 
-    fmt.Println("Final score:", questionsCount - wrongAnswersCount, "/", questionsCount)
+	}
 
-    if wrongAnswersCount > 0 {
-        fmt.Print("\nWrong answers - details\n\n")
-        for _, info := range(wrongAnswersInfo) {
-            fmt.Println("Question:", info.Question)
-            fmt.Println("Your answer:", info.PlayerAnswer)
-            fmt.Print("Correct answer:", info.CorrectAnswer, "\n\n")
-        }
-    }
+	wrongAnswersCount := len(wrongAnswersInfo)
 
-    fmt.Println("Thanks for playing!")
+	fmt.Println("Final score:", questionsCount-wrongAnswersCount, "/", questionsCount)
+
+	if wrongAnswersCount > 0 {
+		fmt.Print("\nWrong answers - details\n\n")
+		for _, info := range wrongAnswersInfo {
+			fmt.Println("Question:", info.Question)
+			fmt.Println("Your answer:", info.PlayerAnswer)
+			fmt.Print("Correct answer:", info.CorrectAnswer, "\n\n")
+		}
+	}
+
+	fmt.Println("Thanks for playing!")
 }
 
 func runTimedQuiz(problems [][]string, timeLimit int) {
-    timer := time.NewTimer(time.Duration(timeLimit) * time.Second)
-    runQuiz(problems, timer)
+	timer := time.NewTimer(time.Duration(timeLimit) * time.Second)
+	runQuiz(problems, timer)
 }
 
 func main() {
-    defaults := getDefaults()
-    filepath, timeLimit := defaults.DefaultFile, defaults.DefaultTimeLimit
-    problems := prepareProblems(filepath)
+	defaults := getDefaults()
+	filepath, timeLimit := defaults.DefaultFile, defaults.DefaultTimeLimit
+	problems := prepareProblems(filepath)
 
-    fmt.Println("Time limit:" + strconv.Itoa(timeLimit) + " seconds")
+	fmt.Println("Time limit:" + strconv.Itoa(timeLimit) + " seconds")
 
-    buf := bufio.NewReader(os.Stdin)
-    fmt.Println("Press enter to start the quiz")
-    _, err := buf.ReadString('\n')
+	buf := bufio.NewReader(os.Stdin)
+	fmt.Println("Press enter to start the quiz")
+	_, err := buf.ReadString('\n')
 
-    if err != nil {
-        fmt.Println(err)
-        return
-    }
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 
-    runTimedQuiz(problems, timeLimit)
-    fmt.Println("Wanna try again?")
-    answer, err := buf.ReadString('\n')
+	runTimedQuiz(problems, timeLimit)
+	fmt.Println("Wanna try again?")
+	answer, err := buf.ReadString('\n')
 
-    if err != nil {
-        fmt.Println(err)
-        return
-    }
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 
-    if (answer == "y") {
-        runTimedQuiz(problems, timeLimit)
-    }
+	if answer == "y" {
+		runTimedQuiz(problems, timeLimit)
+	}
 
-    fmt.Println("See ya!")
+	fmt.Println("See ya!")
 }

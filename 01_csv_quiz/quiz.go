@@ -89,7 +89,9 @@ func runQuiz(problems [][]string, timer *time.Timer) {
 	var wrongAnswersInfo []WrongAnswerInfo
 
 	questionsCount := len(problems)
+	correctCount := 0
 
+ProblemLoop:
 	for _, problem := range problems {
 		question := problem[0]
 		answer := strings.TrimSpace(problem[1])
@@ -102,8 +104,7 @@ func runQuiz(problems [][]string, timer *time.Timer) {
 		select {
 		case <-timer.C:
 			fmt.Println("\nThe time is up!")
-			// TODO: break out of the FOR LOOP
-			return
+			break ProblemLoop
 
 		case input := <-userAnswerChannel:
 			close(userAnswerChannel)
@@ -111,18 +112,18 @@ func runQuiz(problems [][]string, timer *time.Timer) {
 
 			if parsedUserAnswer == answer {
 				fmt.Print("Well done!\n\n")
+				correctCount++
 			} else {
 				fmt.Print("Wrong answer\n\n")
 				answerInfo := WrongAnswerInfo{Question: question, PlayerAnswer: parsedUserAnswer, CorrectAnswer: answer}
 				wrongAnswersInfo = append(wrongAnswersInfo, answerInfo)
 			}
 		}
-
 	}
 
 	wrongAnswersCount := len(wrongAnswersInfo)
 
-	fmt.Println("Final score:", questionsCount-wrongAnswersCount, "/", questionsCount)
+	fmt.Println("Final score:", correctCount, "/", questionsCount)
 
 	if wrongAnswersCount > 0 {
 		fmt.Print("\nWrong answers - details\n\n")
@@ -148,9 +149,9 @@ func main() {
 
 	fmt.Println("Time limit:" + strconv.Itoa(timeLimit) + " seconds")
 
-	buf := bufio.NewReader(os.Stdin)
+	reader := bufio.NewReader(os.Stdin)
 	fmt.Println("Press enter to start the quiz")
-	_, err := buf.ReadString('\n')
+	_, err := reader.ReadString('\n')
 
 	if err != nil {
 		fmt.Println(err)
@@ -159,16 +160,18 @@ func main() {
 
 	runTimedQuiz(problems, timeLimit)
 	fmt.Println("Wanna try again?")
-	answer, err := buf.ReadString('\n')
+	// TODO: this does not work when inputting y/n
+	// you have to press enter again and then the program ALWAYS exist ("See ya!")
+	answer, err := reader.ReadString('\n')
 
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	if answer == "y" {
+	if strings.TrimSpace(answer) == "y" {
 		runTimedQuiz(problems, timeLimit)
+	} else {
+		fmt.Println("See ya!")
 	}
-
-	fmt.Println("See ya!")
 }

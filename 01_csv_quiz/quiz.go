@@ -12,20 +12,18 @@ import (
 	"time"
 )
 
-// WrongAnswerInfo contains question and answers info
-type WrongAnswerInfo struct {
+type wrongAnswerInfo struct {
 	Question      string
 	PlayerAnswer  string
 	CorrectAnswer string
 }
 
-// ProgramDefaults represents default program settings
-type ProgramDefaults struct {
+type programDefaults struct {
 	DefaultFile      string
 	DefaultTimeLimit int
 }
 
-func getDefaults() ProgramDefaults {
+func getDefaults() programDefaults {
 	defaultFile := "questions.csv"
 	defaultTimeLimit := 10
 
@@ -50,7 +48,7 @@ func getDefaults() ProgramDefaults {
 
 	flag.Visit(setDefaults)
 
-	return ProgramDefaults{
+	return programDefaults{
 		DefaultFile:      defaultFile,
 		DefaultTimeLimit: defaultTimeLimit,
 	}
@@ -85,8 +83,8 @@ func getUserAnswer(answerChan chan string) {
 	answerChan <- userAnswer
 }
 
-func runQuiz(problems [][]string, timer *time.Timer) {
-	var wrongAnswersInfo []WrongAnswerInfo
+func runQuiz(problems [][]string, timer *time.Timer, userAnswerChannel chan string) {
+	var wrongAnswersInfo []wrongAnswerInfo
 
 	questionsCount := len(problems)
 	correctCount := 0
@@ -95,7 +93,6 @@ ProblemLoop:
 	for _, problem := range problems {
 		question := problem[0]
 		answer := strings.TrimSpace(problem[1])
-		userAnswerChannel := make(chan string)
 
 		fmt.Print(question, "> ")
 
@@ -107,7 +104,6 @@ ProblemLoop:
 			break ProblemLoop
 
 		case input := <-userAnswerChannel:
-			close(userAnswerChannel)
 			parsedUserAnswer := strings.TrimSpace(input)
 
 			if parsedUserAnswer == answer {
@@ -115,7 +111,7 @@ ProblemLoop:
 				correctCount++
 			} else {
 				fmt.Print("Wrong answer\n\n")
-				answerInfo := WrongAnswerInfo{Question: question, PlayerAnswer: parsedUserAnswer, CorrectAnswer: answer}
+				answerInfo := wrongAnswerInfo{Question: question, PlayerAnswer: parsedUserAnswer, CorrectAnswer: answer}
 				wrongAnswersInfo = append(wrongAnswersInfo, answerInfo)
 			}
 		}
@@ -137,9 +133,10 @@ ProblemLoop:
 	fmt.Println("Thanks for playing!")
 }
 
-func runTimedQuiz(problems [][]string, timeLimit int) {
+func runTimedQuiz(problems [][]string, timeLimit int, userAnswerChannel chan string) {
 	timer := time.NewTimer(time.Duration(timeLimit) * time.Second)
-	runQuiz(problems, timer)
+
+	runQuiz(problems, timer, userAnswerChannel)
 }
 
 func main() {
@@ -147,30 +144,22 @@ func main() {
 	filepath, timeLimit := defaults.DefaultFile, defaults.DefaultTimeLimit
 	problems := prepareProblems(filepath)
 
-	fmt.Println("Time limit:" + strconv.Itoa(timeLimit) + " seconds")
-
-	reader := bufio.NewReader(os.Stdin)
+	fmt.Println("Time limit: " + strconv.Itoa(timeLimit) + " seconds")
 	fmt.Println("Press enter to start the quiz")
-	_, err := reader.ReadString('\n')
+	fmt.Scanf("\n")
 
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	userAnswerChannel := make(chan string)
 
-	runTimedQuiz(problems, timeLimit)
+	runTimedQuiz(problems, timeLimit, userAnswerChannel)
+
 	fmt.Println("Wanna try again?")
-	// TODO: this does not work when inputting y/n
-	// you have to press enter again and then the program ALWAYS exist ("See ya!")
-	answer, err := reader.ReadString('\n')
 
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	replayAnswer := <-userAnswerChannel
 
-	if strings.TrimSpace(answer) == "y" {
-		runTimedQuiz(problems, timeLimit)
+	parsedReplayAnswer := strings.TrimSpace(strings.ToLower(replayAnswer))
+
+	if parsedReplayAnswer == "y" {
+		runTimedQuiz(problems, timeLimit, userAnswerChannel)
 	} else {
 		fmt.Println("See ya!")
 	}

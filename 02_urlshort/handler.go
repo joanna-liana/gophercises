@@ -8,7 +8,8 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-type pathMap = map[string]string
+// PathMap represents name-url mappings
+type PathMap = map[string]string
 
 // MapHandler will return an http.HandlerFunc (which also
 // implements http.Handler) that will attempt to map any
@@ -16,7 +17,7 @@ type pathMap = map[string]string
 // that each key in the map points to, in string format).
 // If the path is not provided in the map, then the fallback
 // http.Handler will be called instead.
-func MapHandler(pathsToUrls pathMap, fallback http.Handler) http.HandlerFunc {
+func MapHandler(pathsToUrls PathMap, fallback http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		redirectURL := pathsToUrls[r.URL.String()]
 		fmt.Println(redirectURL)
@@ -30,8 +31,8 @@ func MapHandler(pathsToUrls pathMap, fallback http.Handler) http.HandlerFunc {
 	}
 }
 
-func buildYamlMap(yamlMap []map[string]string) pathMap {
-	urlMap := make(pathMap)
+func buildYamlMap(yamlMap []map[string]string) PathMap {
+	urlMap := make(PathMap)
 	for _, dict := range yamlMap {
 		urlMap[dict["path"]] = dict["url"]
 	}
@@ -56,8 +57,7 @@ func buildYamlMap(yamlMap []map[string]string) pathMap {
 // See MapHandler to create a similar http.HandlerFunc via
 // a mapping of paths to urls.
 func YAMLHandler(yml []byte, fallback http.Handler) (http.HandlerFunc, error) {
-
-	var parsedYaml []pathMap
+	var parsedYaml []PathMap
 
 	err := yaml.Unmarshal(yml, &parsedYaml)
 
@@ -70,8 +70,8 @@ func YAMLHandler(yml []byte, fallback http.Handler) (http.HandlerFunc, error) {
 	return MapHandler(pathMap, fallback), err
 }
 
-func buildJSONMap(JSONMap []pathURL) pathMap {
-	urlMap := make(pathMap)
+func buildJSONMap(JSONMap []pathURL) PathMap {
+	urlMap := make(PathMap)
 	for _, entry := range JSONMap {
 		urlMap[entry.Path] = entry.Url
 	}
@@ -95,9 +95,5 @@ func JSONHandler(jsonBytes []byte, fallback http.Handler) (http.HandlerFunc, err
 
 	pathMap := buildJSONMap(parsedJSON)
 
-
 	return MapHandler(pathMap, fallback), err
 }
-
-// TODO:
-// Build a Handler that doesn’t read from a map but instead reads from a database. Whether you use BoltDB, SQL, or something else is entirely up to you.

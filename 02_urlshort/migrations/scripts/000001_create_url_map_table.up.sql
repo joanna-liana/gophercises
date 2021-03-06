@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS url_map(
+   id serial PRIMARY KEY,
+   name VARCHAR (50) UNIQUE NOT NULL,
+   url VARCHAR NOT NULL
+);

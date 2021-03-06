@@ -31,8 +31,10 @@ func main() {
 
 	jsonHandler := setupHandlers(customYamlPointer, customJSONPointer, mapHandler)
 
+	finalHandler := urlshort.PgHandler(jsonHandler)
+
 	fmt.Println("Starting the server on :8080")
-	http.ListenAndServe(":8080", jsonHandler)
+	http.ListenAndServe(":8080", finalHandler)
 }
 
 func defaultMux() *http.ServeMux {

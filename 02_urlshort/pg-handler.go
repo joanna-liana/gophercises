@@ -9,6 +9,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// UrlMap is the db schema for url mappings
 type UrlMap struct {
 	tableName struct{} `pg:"url_map"`
     Id     	int64

@@ -29,9 +29,7 @@ func main() {
 	customJSONPointer := flag.String("json", "", "path to json file")
 	flag.Parse()
 
-	jsonHandler := setupHandlers(customYamlPointer, customJSONPointer, mapHandler)
-
-	finalHandler := urlshort.PgHandler(jsonHandler)
+	finalHandler := setupHandlers(customYamlPointer, customJSONPointer, mapHandler)
 
 	fmt.Println("Starting the server on :8080")
 	http.ListenAndServe(":8080", finalHandler)
@@ -96,5 +94,9 @@ func setupHandlers(
 	jsonHandler, err := urlshort.JSONHandler([]byte(json), yamlHandler)
 	check(err)
 
-	return jsonHandler
+	// Build the PgHandler using the JSONHandler
+	// as the fallback
+	pgHandler := urlshort.PgHandler(jsonHandler)
+
+	return pgHandler
 }

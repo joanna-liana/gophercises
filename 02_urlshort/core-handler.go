@@ -24,6 +24,6 @@ func MapHandler(pathsToUrls PathMap, fallback http.Handler) http.HandlerFunc {
 			return
 		}
 
-		http.Redirect(w, r, redirectURL, 301)
+		http.Redirect(w, r, redirectURL, http.StatusFound)
 	}
 }

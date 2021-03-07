@@ -8,6 +8,22 @@ import (
 // PathMap represents name-url mappings
 type PathMap = map[string]string
 
+// PathURL represents the struct used for (un)marshalling data
+type PathURL struct {
+	Path string
+	Url string
+}
+
+
+// BuildPathMapFromPathURLs does what the name says
+func BuildPathMapFromPathURLs(pathURLs []PathURL) PathMap {
+	urlMap := make(PathMap)
+	for _, pu := range pathURLs {
+		urlMap[pu.Path] = pu.Url
+	}
+	return urlMap
+}
+
 // MapHandler will return an http.HandlerFunc (which also
 // implements http.Handler) that will attempt to map any
 // paths (keys in the map) to their corresponding URL (values

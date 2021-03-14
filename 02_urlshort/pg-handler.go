@@ -25,6 +25,7 @@ func readURLsFromDb() []UrlMap {
 	_ = godotenv.Load()
 
     db := pg.Connect(&pg.Options{
+		Addr: os.Getenv("DB_HOST") + ":" + os.Getenv("DB_PORT"),
         User: os.Getenv("DB_USER"),
 		Password: os.Getenv("DB_PASS"),
 		Database: os.Getenv("DB_NAME"),

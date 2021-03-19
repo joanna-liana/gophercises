@@ -1,4 +1,4 @@
-package urlshort
+package urlshort_handlers
 
 import (
 	"fmt"

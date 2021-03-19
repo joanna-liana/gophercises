@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"some-repo-url/urlshort"
+	urlshort_handlers "some-repo-url/urlshort/handlers"
 )
 
 func check(e error) {
@@ -23,7 +23,7 @@ func main() {
 	}
 
 	// Build the MapHandler using the mux as the fallback
-	mapHandler := urlshort.MapHandler(pathsToUrls, mux)
+	mapHandler := urlshort_handlers.MapHandler(pathsToUrls, mux)
 
 	customYamlPointer := flag.String("yaml", "", "path to yaml file")
 	customJSONPointer := flag.String("json", "", "path to json file")
@@ -86,17 +86,17 @@ func setupHandlers(
 
 	// Build the YAMLHandler using the mapHandler
 	// as the fallback
-	yamlHandler, err := urlshort.YAMLHandler([]byte(yaml), mapHandler)
+	yamlHandler, err := urlshort_handlers.YAMLHandler([]byte(yaml), mapHandler)
 	check(err)
 
 	// Build the JSONHandler using the YAMLHandler
 	// as the fallback
-	jsonHandler, err := urlshort.JSONHandler([]byte(json), yamlHandler)
+	jsonHandler, err := urlshort_handlers.JSONHandler([]byte(json), yamlHandler)
 	check(err)
 
 	// Build the PgHandler using the JSONHandler
 	// as the fallback
-	pgHandler := urlshort.PgHandler(jsonHandler)
+	pgHandler := urlshort_handlers.PgHandler(jsonHandler)
 
 	return pgHandler
 }
